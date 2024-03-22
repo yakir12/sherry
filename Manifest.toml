@@ -78,9 +78,11 @@ version = "1.0.3"
 
 [[deps.Autotrack]]
 deps = ["CSV", "ColorTypes", "ColorVectorSpace", "Dates", "Dierckx", "ImageDraw", "ImageFiltering", "ImageTransformations", "LinearAlgebra", "OffsetArrays", "PaddedViews", "StaticArrays", "Statistics", "VideoIO"]
-path = "/home/yakir/Autotrack.jl/"
+git-tree-sha1 = "5d69507153fa6213e9c913311f24d35ae6be4933"
+repo-rev = "main"
+repo-url = "https://github.com/yakir12/Autotrack.jl"
 uuid = "f38f9ce9-c16b-4d5e-a569-b4b8028c75eb"
-version = "0.3.2"
+version = "0.3.3"
 
 [[deps.AxisAlgorithms]]
 deps = ["LinearAlgebra", "Random", "SparseArrays", "WoodburyMatrices"]
