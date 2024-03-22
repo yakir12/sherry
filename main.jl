@@ -1,6 +1,6 @@
 using Dates, LinearAlgebra
 using Autotrack
-using CSV, DataFrames
+using CSV, DataFrames, Missings
 using CairoMakie
 
 function plotit(t1, t2, spl, ar, name)
@@ -33,15 +33,19 @@ function tortuosity(t1, t2, spl, ar)
     cordlength(xy) / curvelength(xy)
 end
 
-get_track(file, start, stop, name) = track(file, start, stop; csv_file=name, debug_file=name, temporal_step=0.5)
+get_track(file, start, stop, starting_point, name) = track(file, start, stop; csv_file=name, debug_file=name, starting_point, temporal_step=0.5)
 
+function parse_point(str)
+    m = match(r"\((\d+),(\d+)\)", filter(!isspace, str))
+    tuple(parse.(Int, m.captures)...)
+end
 
 tosecond(t::T) where {T} = t / convert(T, Dates.Second(1))
 
 df = CSV.read("runs.csv", DataFrame)
 df.name .= string.(rownumber.(eachrow(df)))
-transform!(df, [:start, :stop] .=> ByRow(x -> tosecond(x - Time(0))); renamecols=false)
-transform!(df, [:file, :start, :stop, :name] => ByRow(get_track) => :track)
+transform!(df, [:start, :stop] .=> ByRow(x -> tosecond(x - Time(0))), :starting_point => ByRow(passmissing(parse_point)); renamecols=false)
+transform!(df, [:file, :start, :stop, :starting_point, :name] => ByRow(get_track) => :track)
 transform!(df, :track => ByRow(splat(tortuosity)) => :tortuosity)
 
 for row in eachrow(df)
