@@ -6,14 +6,29 @@ using CairoMakie
 function plotit(t1, t2, spl, ar, name)
     ts = range(t1, t2, 100)
     xy = [Point2f(ar .* spl(t)) for t in ts]
-    xy .-= xy[1]
     fig = Figure()
-    ax = Axis(fig[1,1], aspect=DataAspect())
+    ax = Axis(fig[1,1], aspect=DataAspect(),limits=((0,1920),(0,1080)))
     lines!(ax, xy)
     # hidedecorations!(ax)
     # hidespines!(ax)
     save("$name.eps", fig)
 end
+
+function plotthem(tracks)
+    fig = Figure()
+    ax = Axis(fig[1,1], aspect=DataAspect())
+    for (t1, t2, spl, ar) in tracks
+        ts = range(t1, t2, 100)
+        xy = [Point2f(ar .* spl(t)) for t in ts]
+        xy .-= xy[1]
+        lines!(ax, xy)
+    end
+    lines!(ax, Circle(zero(Point2f), 500), color=:black)
+    # hidedecorations!(ax)
+    # hidespines!(ax)
+    save("all.eps", fig)
+end
+
 
 cordlength(xy) = norm(diff([xy[1], xy[end]]))
 
@@ -33,7 +48,7 @@ function tortuosity(t1, t2, spl, ar)
     cordlength(xy) / curvelength(xy)
 end
 
-get_track(file, start, stop, starting_point, name) = track(file, start, stop; csv_file=name, debug_file=name, starting_point, temporal_step=0.5)
+get_track(file, start, stop, starting_point, name) = track(file, start, stop; csv_file=name, debug_file=name, starting_point, temporal_step=0.5, smoothing_factor=50)
 
 function parse_point(str)
     m = match(r"\((\d+),(\d+)\)", filter(!isspace, str))
@@ -53,3 +68,4 @@ for row in eachrow(df)
     plotit(t1, t2, spl, ar, row.name)
 end
 
+plotthem(df.track)
