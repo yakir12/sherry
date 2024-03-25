@@ -1,71 +1,75 @@
-using Dates, LinearAlgebra
-using Autotrack
-using CSV, DataFrames, Missings
+using SimpTrack
+
+using Dates
+using CSV, DataFrames, Dierckx, VideoIO
 using CairoMakie
-
-function plotit(t1, t2, spl, ar, name)
-    ts = range(t1, t2, 100)
-    xy = [Point2f(ar .* spl(t)) for t in ts]
-    fig = Figure()
-    ax = Axis(fig[1,1], aspect=DataAspect(),limits=((0,1920),(0,1080)))
-    lines!(ax, xy)
-    # hidedecorations!(ax)
-    # hidespines!(ax)
-    save("$name.eps", fig)
-end
-
-function plotthem(tracks)
-    fig = Figure()
-    ax = Axis(fig[1,1], aspect=DataAspect())
-    for (t1, t2, spl, ar) in tracks
-        ts = range(t1, t2, 100)
-        xy = [Point2f(ar .* spl(t)) for t in ts]
-        xy .-= xy[1]
-        lines!(ax, xy)
-    end
-    lines!(ax, Circle(zero(Point2f), 500), color=:black)
-    # hidedecorations!(ax)
-    # hidespines!(ax)
-    save("all.eps", fig)
-end
-
-
-cordlength(xy) = norm(diff([xy[1], xy[end]]))
-
-function curvelength(xy)
-    p0 = xy[1]
-    s = 0.0
-    for p1 in xy[2:end]
-        s += norm(p1 - p0)
-        p0 = p1
-    end
-    return s
-end
-
-function tortuosity(t1, t2, spl, ar)
-    ts = range(t1, t2, 100)
-    xy = [Point2f(ar .* spl(t)) for t in ts]
-    cordlength(xy) / curvelength(xy)
-end
-
-get_track(file, start, stop, starting_point, name) = track(file, start, stop; csv_file=name, debug_file=name, starting_point, temporal_step=0.5, smoothing_factor=50)
-
-function parse_point(str)
-    m = match(r"\((\d+),(\d+)\)", filter(!isspace, str))
-    tuple(parse.(Int, m.captures)...)
-end
 
 tosecond(t::T) where {T} = t / convert(T, Dates.Second(1))
 
-df = CSV.read("runs.csv", DataFrame)
-df.name .= string.(rownumber.(eachrow(df)))
-transform!(df, [:start, :stop] .=> ByRow(x -> tosecond(x - Time(0))), :starting_point => ByRow(passmissing(parse_point)); renamecols=false)
-transform!(df, [:file, :start, :stop, :starting_point, :name] => ByRow(get_track) => :track)
-transform!(df, :track => ByRow(splat(tortuosity)) => :tortuosity)
-
-for row in eachrow(df)
-    t1, t2, spl, ar = row.track
-    plotit(t1, t2, spl, ar, row.name)
+function plotit(name, track)
+    fig = Figure();
+    ax = Axis(fig[1,1], aspect=DataAspect())
+    t, xy = track
+    # scatter!(ax, xy, color=(:gray, 0.3))
+    XY = reshape(collect(Iterators.flatten(xy)), 2, :)
+    spl = ParametricSpline(t, XY; s = 1000, k = 2)
+    ts = range(t[1], t[end], length(t))
+    xy2 = Point2f.(spl.(ts))
+    xy2 .-= xy2[1]
+    lines!(ax, xy2)
+    lines!(ax, Circle(zero(Point2f), 350), color=:black)
+    save("$name.pdf", fig)
 end
 
-plotthem(df.track)
+function plotthem(names, tracks)
+    fig = Figure();
+    ax = Axis(fig[1,1], aspect=DataAspect())
+    for (name, track) in zip(names, tracks)
+        t, xy = track
+        # scatter!(ax, xy, color=(:gray, 0.3))
+        XY = reshape(collect(Iterators.flatten(xy)), 2, :)
+        spl = ParametricSpline(t, XY; s = 1000, k = 2)
+        ts = range(t[1], t[end], length(t))
+        xy2 = Point2f.(spl.(ts))
+        xy2 .-= xy2[1]
+        lines!(ax, xy2, label=name)
+    end
+    lines!(ax, Circle(zero(Point2f), 350), color=:black)
+    axislegend(ax)
+    save("all.pdf", fig)
+end
+
+function save_vid(name, file, track)
+    t, xy = track
+    vid = openvideo(file)
+    sz = out_frame_size(vid)
+    h = 200
+    fig = Figure(size=(h, h*sz[2] ÷ sz[1]), figure_padding=0)
+    ax = Axis(fig[1,1], aspect=DataAspect())
+    img = Observable(rotr90(read(vid)))
+    image!(ax, img)
+    y, x = xy[1]
+    point = Observable(Point2f(x, sz[2] - y))
+    scatter!(ax, point, marker='+', color=:red)
+    hidespines!(ax)
+    hidedecorations!(ax)
+    seek(vid, t[1])
+    framerate = round(Int, 2length(t)/(t[end] - t[1]))
+    record(fig, "$name.mp4", zip(xy, vid); framerate) do (xy, frame)
+        img[] = rotr90(frame)
+        y, x = xy
+        point[] = Point2f(x, sz[2] - y)
+    end
+end
+
+video_folder = "/home/yakir/new_projects/sherry/Exempel/20231128_B1_intact"
+
+runs_file = joinpath(video_folder, "Yakirs program/runs.csv")
+df = CSV.read(runs_file, DataFrame)
+df.name .= string.(rownumber.(eachrow(df)))
+transform!(df, [:start, :stop] .=> ByRow(x -> tosecond(x - Time(0))), :file => ByRow(x -> joinpath(video_folder, x)); renamecols=false)
+transform!(df, [:file, :start, :stop] => ByRow(track) => :track)
+select(df, [:name, :file, :track] => ByRow(save_vid))
+select(df, [:name, :track] => ByRow(plotit))
+select(df, [:name, :track] => plotthem)
+
