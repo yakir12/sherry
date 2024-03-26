@@ -25,16 +25,19 @@ end
 function plotthem(names, starts, stops, splines)
     fig = Figure();
     ax = Axis(fig[1,1], aspect=DataAspect())
+    lins = []
     for (name, start, stop, spline) in zip(names, starts, stops, splines)
         ts = range(start, stop, 100)
         xy = Point2f.(spline.(ts))
         xy .-= xy[1]
-        lines!(ax, xy, label=name)
+        push!(lins, lines!(ax, xy))
     end
     lines!(ax, Circle(zero(Point2f), 350), color=:black)
-    axislegend(ax)
+    Legend(fig[1,2], lins, names; nbanks=2)
+    # axislegend(ax, position = (1.2,1))
     save("all.pdf", fig)
 end
+select(df, [:name, :start, :stop, :spline] => plotthem)
 
 function save_csv(name, track)
     t, xy = track
