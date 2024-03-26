@@ -1,42 +1,45 @@
 using SimpTrack
-
-using Dates
+using Dates, LinearAlgebra
 using CSV, DataFrames, Dierckx, VideoIO
 using CairoMakie
 
 tosecond(t::T) where {T} = t / convert(T, Dates.Second(1))
 
-function plotit(name, track)
+function get_spline(track)
+    t, xy = track
+    XY = reshape(collect(Iterators.flatten(xy)), 2, :)
+    ParametricSpline(t, XY; s = 1000, k = 2)
+end
+
+function plotit(name, start, stop, spline)
     fig = Figure();
     ax = Axis(fig[1,1], aspect=DataAspect())
-    t, xy = track
-    # scatter!(ax, xy, color=(:gray, 0.3))
-    XY = reshape(collect(Iterators.flatten(xy)), 2, :)
-    spl = ParametricSpline(t, XY; s = 1000, k = 2)
-    ts = range(t[1], t[end], length(t))
-    xy2 = Point2f.(spl.(ts))
-    xy2 .-= xy2[1]
-    lines!(ax, xy2)
+    ts = range(start, stop, 100)
+    xy = Point2f.(spline.(ts))
+    xy .-= xy[1]
+    lines!(ax, xy)
     lines!(ax, Circle(zero(Point2f), 350), color=:black)
     save("$name.pdf", fig)
 end
 
-function plotthem(names, tracks)
+function plotthem(names, starts, stops, splines)
     fig = Figure();
     ax = Axis(fig[1,1], aspect=DataAspect())
-    for (name, track) in zip(names, tracks)
-        t, xy = track
-        # scatter!(ax, xy, color=(:gray, 0.3))
-        XY = reshape(collect(Iterators.flatten(xy)), 2, :)
-        spl = ParametricSpline(t, XY; s = 1000, k = 2)
-        ts = range(t[1], t[end], length(t))
-        xy2 = Point2f.(spl.(ts))
-        xy2 .-= xy2[1]
-        lines!(ax, xy2, label=name)
+    for (name, start, stop, spline) in zip(names, starts, stops, splines)
+        ts = range(start, stop, 100)
+        xy = Point2f.(spline.(ts))
+        xy .-= xy[1]
+        lines!(ax, xy, label=name)
     end
     lines!(ax, Circle(zero(Point2f), 350), color=:black)
     axislegend(ax)
     save("all.pdf", fig)
+end
+
+function save_csv(name, track)
+    t, xy = track
+    df = DataFrame(second = t, x = first.(xy), y = last.(xy))
+    CSV.write("$name.csv", df)
 end
 
 function save_vid(name, file, track)
@@ -62,14 +65,34 @@ function save_vid(name, file, track)
     end
 end
 
-video_folder = "/home/yakir/new_projects/sherry/Exempel/20231128_B1_intact"
+cordlength(xy) = norm(diff([xy[1], xy[end]]))
 
-runs_file = joinpath(video_folder, "Yakirs program/runs.csv")
+function curvelength(xy)
+    p0 = xy[1]
+    s = 0.0
+    for p1 in xy[2:end]
+        s += norm(p1 - p0)
+        p0 = p1
+    end
+    return s
+end
+
+function tortuosity(t1, t2, spl)
+    xy = Point2f.(spl.(range(t1, t2, 1000)))
+    cordlength(xy) / curvelength(xy)
+end
+
+video_folder = "/home/yakir/B10"
+
+runs_file = joinpath(video_folder, "runs.csv")
 df = CSV.read(runs_file, DataFrame)
 df.name .= string.(rownumber.(eachrow(df)))
 transform!(df, [:start, :stop] .=> ByRow(x -> tosecond(x - Time(0))), :file => ByRow(x -> joinpath(video_folder, x)); renamecols=false)
 transform!(df, [:file, :start, :stop] => ByRow(track) => :track)
+transform!(df, :track => ByRow(get_spline) => :spline)
+transform!(df, [:start, :stop, :spline] => ByRow(tortuosity) => :tortuosity)
+select(df, [:name, :track] => ByRow(save_csv))
 select(df, [:name, :file, :track] => ByRow(save_vid))
-select(df, [:name, :track] => ByRow(plotit))
-select(df, [:name, :track] => plotthem)
+select(df, [:name, :start, :stop, :spline] => ByRow(plotit))
+select(df, [:name, :start, :stop, :spline] => plotthem)
 

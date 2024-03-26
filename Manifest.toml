@@ -1341,11 +1341,11 @@ version = "0.4.0"
 
 [[deps.SimpTrack]]
 deps = ["ImageFiltering", "OffsetArrays", "VideoIO"]
-git-tree-sha1 = "41f900c114e0a8050d9b688a7fb7bd93ba27c477"
+git-tree-sha1 = "01d44709d5404eacc5637f78e2427ab025c3bd89"
 repo-rev = "main"
 repo-url = "https://github.com/yakir12/SimpTrack"
 uuid = "cbfce16d-aa61-4ea5-b8a8-99ca74cb25a4"
-version = "0.1.1"
+version = "0.2.1"
 
 [[deps.SimpleGraphs]]
 deps = ["AbstractLattices", "Combinatorics", "DataStructures", "IterTools", "LightXML", "LinearAlgebra", "LinearAlgebraX", "Optim", "Primes", "Random", "RingLists", "SimplePartitions", "SimplePolynomials", "SimpleRandom", "SparseArrays", "Statistics"]
