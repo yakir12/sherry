@@ -56,6 +56,8 @@ function save_vid(name, file, track)
     scatter!(ax, point, marker='+', color=:red)
     hidespines!(ax)
     hidedecorations!(ax)
+    t₀ = gettime(vid)
+    t .+= t₀
     seek(vid, t[1])
     framerate = round(Int, 2length(t)/(t[end] - t[1]))
     record(fig, "$name.mp4", zip(xy, vid); framerate) do (xy, frame)
