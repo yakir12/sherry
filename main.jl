@@ -37,7 +37,6 @@ function plotthem(names, starts, stops, splines)
     # axislegend(ax, position = (1.2,1))
     save("all.pdf", fig)
 end
-select(df, [:name, :start, :stop, :spline] => plotthem)
 
 function save_csv(name, track)
     t, xy = track
